@@ -14,6 +14,7 @@ const usage = `capo: transpose chord sheets
   capo to <key> [file]           move the song into another key, for example "capo to G song.txt"
   capo fret <number> [file]      the shapes to play with a capo on that fret
   capo key [file]                guess the key of the song
+  capo numbers [file]            show the chords as Nashville numbers in the song's key
 
 Reads from the file, or from standard input when no file is given.
 Add --flats or --sharps to choose how notes are spelled.`
@@ -67,6 +68,18 @@ func run(args []string, stdout io.Writer) error {
 		} else {
 			fmt.Fprintf(stdout, "%s major\n", key)
 		}
+		return nil
+
+	case "numbers":
+		sheet, err := readSheet(arg(1))
+		if err != nil {
+			return err
+		}
+		key, minor := DetectKey(chordsIn(sheet))
+		if key == "" {
+			return fmt.Errorf("no chords found")
+		}
+		fmt.Fprint(stdout, NumberSheet(sheet, key, minor))
 		return nil
 
 	case "up", "fret":

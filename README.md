@@ -37,6 +37,7 @@ One small binary, no dependencies.
 | `capo to Bb song.txt` | Work out the song's key and move it to Bb |
 | `capo fret 3 song.txt` | Show the shapes to play with a capo on the third fret |
 | `capo key song.txt` | Guess the key |
+| `capo numbers song.txt` | Show the chords as Nashville numbers in the song's key |
 
 Leave the file out to read from standard input, so it works in a pipe:
 
@@ -45,6 +46,8 @@ pbpaste | capo to D | pbcopy
 ```
 
 Add `--flats` or `--sharps` if you want to choose the spelling yourself.
+
+Nashville numbers write each chord as its place in the key. In G, `G C D Em` becomes `1 4 5 6m`, and `D/F#` becomes `5/7`. A minor key counts from its relative major, so `Am F C G` in A minor becomes `6m 4 1 5`.
 
 ## What it gets right
 
@@ -74,7 +77,7 @@ It is a guess, and a good one for ordinary songs. A song that changes key halfwa
 go test ./...
 ```
 
-They cover chord parsing, spelling, column alignment, key detection, and a round trip: up five semitones and back down gives the exact sheet you started with.
+They cover chord parsing, spelling, column alignment, key detection, Nashville numbers, and a round trip: up five semitones and back down gives the exact sheet you started with.
 
 ## Why
 

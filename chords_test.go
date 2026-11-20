@@ -173,3 +173,64 @@ func TestCommands(t *testing.T) {
 		t.Error("an unknown command should be an error")
 	}
 }
+
+func TestNashvilleNumbers(t *testing.T) {
+	cases := []struct {
+		chord, tonic, want string
+	}{
+		{"G", "G", "1"},
+		{"C", "G", "4"},
+		{"D", "G", "5"},
+		{"Em", "G", "6m"},
+		{"Am7", "G", "2m7"},
+		{"D7", "G", "57"},
+		{"D/F#", "G", "5/7"},
+		{"F", "G", "b7"},
+		{"Bb", "G", "b3"},
+		{"Fmaj7", "C", "4maj7"},
+	}
+	for _, c := range cases {
+		chord, _ := ParseChord(c.chord)
+		if got := chord.Nashville(c.tonic); got != c.want {
+			t.Errorf("%s in %s = %s, want %s", c.chord, c.tonic, got, c.want)
+		}
+	}
+}
+
+func TestNumberSheetMajorKey(t *testing.T) {
+	got := NumberSheet("G       D\nAm I going home\nEm      C", "G", false)
+	want := "1       5\nAm I going home\n6m      4"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestNumberSheetMinorKeyCountsFromRelativeMajor(t *testing.T) {
+	got := NumberSheet("Am F C G", "A", true)
+	if got != "6m 4 1 5" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestNumberSheetKeepsColumnsAndBrackets(t *testing.T) {
+	// Bb in G is b3, one character wider, so the gap after it gives the character back.
+	if got := NumberSheet("Bb   D", "G", false); got != "b3   5" {
+		t.Errorf("got %q", got)
+	}
+	if got := NumberSheet("[Am]Say it [D/F#]slow [not a chord]", "G", false); got != "[2m]Say it [5/7]slow [not a chord]" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestNumbersCommand(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"numbers", "examples/song.txt"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "1           5\n") || !strings.Contains(out.String(), "[5/7]where to go") {
+		t.Errorf("got:\n%s", out.String())
+	}
+	if err := run([]string{"numbers", "no-such-file.txt"}, &out); err == nil {
+		t.Error("a missing file should be an error")
+	}
+}

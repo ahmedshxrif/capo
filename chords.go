@@ -134,6 +134,12 @@ func prefersFlats(chords []Chord, semitones int) bool {
 // transposeChordLine replaces each chord and keeps the ones after it in the same
 // column where it can, so chords stay above the right syllables.
 func transposeChordLine(line string, semitones int, flats bool) string {
+	return rewriteChordLine(line, func(c Chord) string { return c.Transpose(semitones, flats).String() })
+}
+
+// rewriteChordLine swaps every chord on a chord line for whatever rewrite returns, and keeps
+// the columns of the chords that follow where it can.
+func rewriteChordLine(line string, rewrite func(Chord) string) string {
 	var out strings.Builder
 	debt := 0 // columns the output is ahead of (+) or behind (-) the original
 	i := 0
@@ -165,7 +171,7 @@ func transposeChordLine(line string, semitones int, flats bool) string {
 		}
 		token := line[start:i]
 		if chord, ok := ParseChord(token); ok {
-			moved := chord.Transpose(semitones, flats).String()
+			moved := rewrite(chord)
 			out.WriteString(moved)
 			debt += len(moved) - len(token)
 		} else {
@@ -254,4 +260,44 @@ func semitonesBetween(from, to string) int {
 		distance -= 12
 	}
 	return distance
+}
+
+var degreeNames = []string{"1", "b2", "2", "b3", "3", "4", "b5", "5", "b6", "6", "b7", "7"}
+
+// degree is the Nashville number of a note in the key whose tonic is tonic.
+func degree(note, tonic string) string {
+	return degreeNames[((noteIndex[note]-noteIndex[tonic])%12+12)%12]
+}
+
+// Nashville writes the chord as a number in the key, so Em in G is 6m and D/F# is 5/7.
+func (c Chord) Nashville(tonic string) string {
+	out := degree(c.Root, tonic) + c.Quality
+	if c.Bass != "" {
+		out += "/" + degree(c.Bass, tonic)
+	}
+	return out
+}
+
+// NumberSheet replaces every chord with its Nashville number. A minor key counts from its
+// relative major, the way DetectKey sees it, so Am in A minor is 6m.
+func NumberSheet(sheet, key string, minor bool) string {
+	tonic := key
+	if minor {
+		tonic = flatNames[(noteIndex[key]+3)%12]
+	}
+	rewrite := func(c Chord) string { return c.Nashville(tonic) }
+	lines := strings.Split(sheet, "\n")
+	for i, line := range lines {
+		if isChordLine(line) {
+			lines[i] = rewriteChordLine(line, rewrite)
+			continue
+		}
+		lines[i] = bracketed.ReplaceAllStringFunc(line, func(match string) string {
+			if chord, ok := ParseChord(match[1 : len(match)-1]); ok {
+				return "[" + rewrite(chord) + "]"
+			}
+			return match
+		})
+	}
+	return strings.Join(lines, "\n")
 }
