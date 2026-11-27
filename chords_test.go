@@ -234,3 +234,51 @@ func TestNumbersCommand(t *testing.T) {
 		t.Error("a missing file should be an error")
 	}
 }
+
+func TestChordProDirectivesPassThrough(t *testing.T) {
+	sheet, err := os.ReadFile("examples/song.cho")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := TransposeSheet(string(sheet), 3, false, false)
+	want := "{title: Harbour Road}\n{artist: Ahmed Farahat}\n{key: Bb}\n{comment: Play [Am] softly}\n\n" +
+		"[Bb]Morning on the [F]harbour road\n[Gm]Coffee and a [Eb]half-read code\n"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestKeyDirectiveVariants(t *testing.T) {
+	cases := map[string]string{
+		"{key: Em}":       "{key: Gm}",
+		"{ KEY : F# }":    "{ KEY : A }",
+		"{key: nonsense}": "{key: nonsense}",
+		"{subtitle: G}":   "{subtitle: G}",
+	}
+	for in, want := range cases {
+		if got := TransposeSheet(in, 3, false, false); got != want {
+			t.Errorf("%q: got %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDirectivesDoNotAffectKeyOrNumbers(t *testing.T) {
+	sheet := "{comment: [F] and [Bb] here}\n[G]one [D]two [C]three\n{key: G}"
+	if key, _ := DetectKey(chordsIn(sheet)); key != "G" {
+		t.Errorf("key = %q, want G", key)
+	}
+	want := "{comment: [F] and [Bb] here}\n[1]one [5]two [4]three\n{key: G}"
+	if got := NumberSheet(sheet, "G", false); got != want {
+		t.Errorf("got:\n%s", got)
+	}
+}
+
+func TestToCommandUpdatesKeyDirective(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"to", "A", "examples/song.cho"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "{key: A}") || !strings.Contains(out.String(), "{title: Harbour Road}") {
+		t.Errorf("got:\n%s", out.String())
+	}
+}

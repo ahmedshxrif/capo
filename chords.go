@@ -17,7 +17,10 @@ var (
 	chordPattern = regexp.MustCompile(`^([A-G][#b]?)((?:maj|min|dim|aug|sus|add|m|M|\+|°|ø)?[0-9]*(?:(?:sus|add|maj|min|dim|aug|b|#|\+|-)[0-9]+)*)(?:/([A-G][#b]?))?$`)
 	bracketed    = regexp.MustCompile(`\[([^\]\s]+)\]`)
 	// Things that sit on a chord line without being chords: bar lines, repeats, "no chord".
-	filler = regexp.MustCompile(`^(?:\||\|\||/|-|%|N\.?C\.?|x\d+|\(?x\d+\)?|\d+x)$`)
+	// A ChordPro directive is a whole line such as {title: Harbour Road}. Only {key: G} is rewritten.
+	directive    = regexp.MustCompile(`^\s*\{.*\}\s*$`)
+	keyDirective = regexp.MustCompile(`(?i)^(\s*\{\s*key\s*:\s*)([^}\s]+)(.*)$`)
+	filler       = regexp.MustCompile(`^(?:\||\|\||/|-|%|N\.?C\.?|x\d+|\(?x\d+\)?|\d+x)$`)
 )
 
 // Chord is one parsed chord, such as F#m7/C#.
@@ -87,6 +90,9 @@ func isChordLine(line string) bool {
 func chordsIn(sheet string) []Chord {
 	var found []Chord
 	for _, line := range strings.Split(sheet, "\n") {
+		if directive.MatchString(line) {
+			continue // directives hold titles and comments, not the song's chords
+		}
 		if isChordLine(line) {
 			for _, field := range strings.Fields(line) {
 				if chord, ok := ParseChord(field); ok {
@@ -181,6 +187,19 @@ func rewriteChordLine(line string, rewrite func(Chord) string) string {
 	return out.String()
 }
 
+// transposeKeyDirective moves the key in a {key: G} line and leaves every other directive alone.
+func transposeKeyDirective(line string, semitones int, flats bool) string {
+	m := keyDirective.FindStringSubmatch(line)
+	if m == nil {
+		return line
+	}
+	chord, ok := ParseChord(m[2])
+	if !ok || chord.Bass != "" {
+		return line
+	}
+	return m[1] + chord.Transpose(semitones, flats).String() + m[3]
+}
+
 // TransposeSheet moves every chord in a sheet by a number of semitones and leaves the lyrics alone.
 func TransposeSheet(sheet string, semitones int, forceFlats, forceSharps bool) string {
 	flats := prefersFlats(chordsIn(sheet), semitones)
@@ -192,6 +211,10 @@ func TransposeSheet(sheet string, semitones int, forceFlats, forceSharps bool) s
 	}
 	lines := strings.Split(sheet, "\n")
 	for i, line := range lines {
+		if directive.MatchString(line) {
+			lines[i] = transposeKeyDirective(line, semitones, flats)
+			continue
+		}
 		if isChordLine(line) {
 			lines[i] = transposeChordLine(line, semitones, flats)
 			continue
@@ -288,6 +311,9 @@ func NumberSheet(sheet, key string, minor bool) string {
 	rewrite := func(c Chord) string { return c.Nashville(tonic) }
 	lines := strings.Split(sheet, "\n")
 	for i, line := range lines {
+		if directive.MatchString(line) {
+			continue // the key directive is a plain name, so it stays as written
+		}
 		if isChordLine(line) {
 			lines[i] = rewriteChordLine(line, rewrite)
 			continue

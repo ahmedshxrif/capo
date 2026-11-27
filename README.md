@@ -63,6 +63,8 @@ Nashville numbers write each chord as its place in the key. In G, `G C D Em` bec
 [Am]Say it once and [C]say it slow
 ```
 
+**It leaves ChordPro directives alone.** Lines such as `{title: Harbour Road}` and `{comment: Play [Am] softly}` pass through untouched and do not count towards the key. The one exception is `{key: G}`, which moves with the song. See `examples/song.cho`.
+
 **It handles the awkward chords.** `F#m7`, `Bbmaj7`, `D/F#`, `Gsus4`, `C7b5`, `Edim`, bar lines and `x2` repeats.
 
 ## How the key is found
@@ -77,7 +79,7 @@ It is a guess, and a good one for ordinary songs. A song that changes key halfwa
 go test ./...
 ```
 
-They cover chord parsing, spelling, column alignment, key detection, Nashville numbers, and a round trip: up five semitones and back down gives the exact sheet you started with.
+They cover chord parsing, spelling, column alignment, key detection, Nashville numbers, ChordPro directives, and a round trip: up five semitones and back down gives the exact sheet you started with.
 
 ## Why
 
